@@ -5,6 +5,9 @@
     <link rel="manifest" href="/manifest.json">
     <title>Scan Detection</title>
     <style>
+        .hidden {
+            display: none;
+        }
 
         .spacer {
             height: 15px;
@@ -46,7 +49,7 @@
         }
 
         .slider {
-            border: 1px solid rgba(0,0,0,0.3);
+            border: 1px solid rgba(0, 0, 0, 0.3);
             -webkit-appearance: none;
             /* Override default look */
             appearance: none;
@@ -161,8 +164,10 @@
         <div id="cameraContainer">
             <video id="camera" autoplay></video>
         </div>
+        Beep threshold (higher = earlier)
         <div class="spacer"></div>
-        <input type="range" id="thresholdSlider" min="0" max="255" value="32" class="slider">
+        <input type="range" id="thresholdSlider" min="0" max="255" value="32"
+            class="slider">
         <div class="spacer"></div>
         <button id="toggleCameraButton" class="button">Toggle Camera</button>
         <button id="lockButton" class="button">Lock Settings</button>
@@ -182,6 +187,9 @@
                     if (cameras.length > 0) {
                         startCamera(cameras[currentCameraIndex].deviceId);
                     }
+                    if (cameras.length < 2) {
+                        document.querySelector('#toggleCameraButton').classList.add('hidden');
+                    }
                 })
                 .catch(function (err) {
                     console.error("Error listing cameras:", err);
@@ -189,6 +197,11 @@
         }
 
         function startCamera(deviceId) {
+            // If there's an existing stream, get all tracks and stop them
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+
             navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId } })
                 .then(stream => {
                     video.srcObject = stream;
@@ -201,6 +214,7 @@
                     console.error("Error accessing camera:", err);
                 });
         }
+
 
         function toggleCamera() {
             if (cameras.length > 1) {
