@@ -5,47 +5,239 @@
     <link rel="manifest" href="/manifest.json">
     <title>Scan Detection</title>
     <style>
+
+        .spacer {
+            height: 15px;
+        }
+
         body {
             background-color: black;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }
 
         .greenScreen {
             background-color: green;
         }
+
+        #settingsPanel {
+            display: none;
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+
+        .button {
+            padding: 15px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 20px;
+            margin-top: 10px;
+        }
+
+        .slider {
+            border: 1px solid rgba(0,0,0,0.3);
+            -webkit-appearance: none;
+            /* Override default look */
+            appearance: none;
+            width: 100%;
+            /* Full-width */
+            height: 4px;
+            /* Slimmer track */
+            background: white;
+            /* White track */
+            outline: none;
+        }
+
+        /* Style the slider thumb for WebKit/Blink browsers */
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            /* Override default look */
+            appearance: none;
+            width: 60px;
+            /* Larger width for the thumb */
+            height: 60px;
+            /* Larger height for the thumb */
+            background: #4CAF50;
+            /* Green background */
+            cursor: pointer;
+            /* Pointer/hand icon */
+            border-radius: 50%;
+            /* Circular border */
+            margin-top: -28px;
+            /* Centers the thumb over the track */
+        }
+
+        /* Style the slider thumb for Mozilla Firefox */
+        .slider::-moz-range-thumb {
+            width: 60px;
+            /* Larger width for the thumb */
+            height: 60px;
+            /* Larger height for the thumb */
+            background: #4CAF50;
+            /* Green background */
+            cursor: pointer;
+            /* Pointer/hand icon */
+            border-radius: 50%;
+            /* Circular border */
+        }
+
+        /* Style the slider thumb for Microsoft Edge */
+        .slider::-ms-thumb {
+            width: 60px;
+            /* Larger width for the thumb */
+            height: 60px;
+            /* Larger height for the thumb */
+            background: #4CAF50;
+            /* Green background */
+            cursor: pointer;
+            /* Pointer/hand icon */
+            border-radius: 50%;
+            /* Circular border */
+        }
+
+        /* Style the track for WebKit/Blink browsers */
+        .slider::-webkit-slider-runnable-track {
+            height: 4px;
+            /* Match with the track height */
+            background: white;
+            /* White track */
+        }
+
+        /* Style the track for Mozilla Firefox */
+        .slider::-moz-range-track {
+            height: 4px;
+            /* Match with the track height */
+            background: white;
+            /* White track */
+        }
+
+        /* Style the track for Microsoft Edge */
+        .slider::-ms-track {
+            height: 4px;
+            /* Match with the track height */
+            background: white;
+            /* White track */
+            border-color: transparent;
+            /* Required for proper track styling in Edge */
+            color: transparent;
+            /* Required for proper track styling in Edge */
+        }
+
+
+        #unlockSliderContainer {
+            width: 80%;
+            display: block;
+        }
+
+        #unlockSlider {
+            margin: 10px 0;
+            -webkit-appearance: none;
+        }
+
+        #cameraContainer {
+            display: none;
+        }
+
+        #camera {
+            width: 100%;
+            border-radius: 5px;
+        }
     </style>
 </head>
 
 <body>
-    <video id="camera" width="640" height="480" autoplay></video>
-    <input type="range" id="thresholdSlider" min="0" max="255" value="32" style="display: none"/>
+    <div id="settingsPanel">
+        <div id="cameraContainer">
+            <video id="camera" autoplay></video>
+        </div>
+        <div class="spacer"></div>
+        <input type="range" id="thresholdSlider" min="0" max="255" value="32" class="slider">
+        <div class="spacer"></div>
+        <button id="toggleCameraButton" class="button">Toggle Camera</button>
+        <button id="lockButton" class="button">Lock Settings</button>
+    </div>
+    <div id="unlockSliderContainer">
+        <input type="range" id="unlockSlider" min="0" max="100" value="0" class="slider">
+    </div>
 
     <script>
+        let currentCameraIndex = 0;
+        let cameras = [];
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(function (registration) {
-                    console.log('Service Worker Registered', registration);
+        function listCameras() {
+            navigator.mediaDevices.enumerateDevices()
+                .then(function (devices) {
+                    cameras = devices.filter(device => device.kind === 'videoinput');
+                    if (cameras.length > 0) {
+                        startCamera(cameras[currentCameraIndex].deviceId);
+                    }
                 })
-                .catch(function (error) {
-                    console.log('Service Worker Registration failed', error);
+                .catch(function (err) {
+                    console.error("Error listing cameras:", err);
                 });
         }
+
+        function startCamera(deviceId) {
+            navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        checkCamera();
+                    };
+                })
+                .catch(err => {
+                    console.error("Error accessing camera:", err);
+                });
+        }
+
+        function toggleCamera() {
+            if (cameras.length > 1) {
+                currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+                startCamera(cameras[currentCameraIndex].deviceId);
+            }
+        }
+
+        document.getElementById('toggleCameraButton').addEventListener('click', toggleCamera);
+        document.getElementById('lockButton').addEventListener('click', () => {
+            document.getElementById('settingsPanel').style.display = 'none';
+            document.getElementById('unlockSliderContainer').style.display = 'block';
+        });
+
+        const unlockSlider = document.getElementById('unlockSlider');
+        unlockSlider.addEventListener('input', function () {
+            if (this.value == this.max) {
+                document.getElementById('settingsPanel').style.display = 'block';
+                document.getElementById('cameraContainer').style.display = 'block';
+                document.getElementById('unlockSliderContainer').style.display = 'none';
+                this.value = 0; // Reset slider
+            }
+        });
+
+        unlockSlider.addEventListener('touchend', function () {
+            this.value = 0; // Reset slider on touch end
+        });
+
+        unlockSlider.addEventListener('mouseup', function () {
+            this.value = 0; // Reset slider on mouse up
+        });
+
+        window.onload = listCameras;
 
         const video = document.getElementById('camera');
         const thresholdSlider = document.getElementById('thresholdSlider');
         let lastBeepTime = 0;
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-            .then(stream => {
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play();
-                    checkCamera();
-                };
-            })
-            .catch(err => {
-                console.error("Error accessing camera:", err);
-            });
 
         function createBeep() {
             let context = new AudioContext();
@@ -54,37 +246,34 @@
             oscillator.frequency.setValueAtTime(1300, context.currentTime); // frequency in hertz
             oscillator.connect(context.destination);
             oscillator.start();
-            oscillator.stop(context.currentTime + 0.1); // beep for 0.5 seconds
+            oscillator.stop(context.currentTime + 0.1); // beep for 0.1 seconds
         }
 
         function checkCamera() {
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    let cameraClearSinceLastScan = true; // New variable
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            let cameraClearSinceLastScan = true;
 
-    const checkInterval = setInterval(() => {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const threshold = parseInt(thresholdSlider.value);
+            const checkInterval = setInterval(() => {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const threshold = parseInt(thresholdSlider.value);
 
-        // Check if the image is clear (not dark)
-        if (!isDark(imageData, threshold)) {
-            cameraClearSinceLastScan = true;
+                if (!isDark(imageData, threshold)) {
+                    cameraClearSinceLastScan = true;
+                }
+
+                if (isDark(imageData, threshold) && cameraClearSinceLastScan && (Date.now() - lastBeepTime > 1000)) {
+                    createBeep();
+                    lastBeepTime = Date.now();
+                    document.body.classList.add('greenScreen');
+                    setTimeout(() => document.body.classList.remove('greenScreen'), 1000);
+                    cameraClearSinceLastScan = false;
+                }
+            }, 50);
         }
-
-        // Only proceed with scan if camera was clear since last scan
-        if (isDark(imageData, threshold) && cameraClearSinceLastScan && (Date.now() - lastBeepTime > 1000)) {
-            createBeep();
-            lastBeepTime = Date.now();
-            document.body.classList.add('greenScreen');
-            setTimeout(() => document.body.classList.remove('greenScreen'), 1000);
-            cameraClearSinceLastScan = false; // Reset the flag
-        }
-    }, 50);
-}
-
 
         function isDark(imageData, threshold) {
             let darkPixels = 0;
