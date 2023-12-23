@@ -1,0 +1,7 @@
+{
+    "name": "Kids Cash Register",
+    "short_name": "cashregister",
+    "start_url": "/index.html",
+    "display": "standalone"
+  }
+  

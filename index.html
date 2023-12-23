@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="manifest" href="/manifest.json">
+    <title>Scan Detection</title>
+    <style>
+        body {
+            background-color: black;
+        }
+
+        .greenScreen {
+            background-color: green;
+        }
+    </style>
+</head>
+
+<body>
+    <video id="camera" width="640" height="480" autoplay style="display: none;"></video>
+    <input type="range" id="thresholdSlider" min="0" max="255" value="32" style="display: none"/>
+
+    <script>
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(function (registration) {
+                    console.log('Service Worker Registered', registration);
+                })
+                .catch(function (error) {
+                    console.log('Service Worker Registration failed', error);
+                });
+        }
+
+        const video = document.getElementById('camera');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        let lastBeepTime = 0;
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+            .then(stream => {
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    checkCamera();
+                };
+            })
+            .catch(err => {
+                console.error("Error accessing camera:", err);
+            });
+
+        function createBeep() {
+            let context = new AudioContext();
+            let oscillator = context.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1300, context.currentTime); // frequency in hertz
+            oscillator.connect(context.destination);
+            oscillator.start();
+            oscillator.stop(context.currentTime + 0.1); // beep for 0.5 seconds
+        }
+
+        function checkCamera() {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    let cameraClearSinceLastScan = true; // New variable
+
+    const checkInterval = setInterval(() => {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const threshold = parseInt(thresholdSlider.value);
+
+        // Check if the image is clear (not dark)
+        if (!isDark(imageData, threshold)) {
+            cameraClearSinceLastScan = true;
+        }
+
+        // Only proceed with scan if camera was clear since last scan
+        if (isDark(imageData, threshold) && cameraClearSinceLastScan && (Date.now() - lastBeepTime > 1000)) {
+            createBeep();
+            lastBeepTime = Date.now();
+            document.body.classList.add('greenScreen');
+            setTimeout(() => document.body.classList.remove('greenScreen'), 1000);
+            cameraClearSinceLastScan = false; // Reset the flag
+        }
+    }, 50);
+}
+
+
+        function isDark(imageData, threshold) {
+            let darkPixels = 0;
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                const r = imageData.data[i];
+                const g = imageData.data[i + 1];
+                const b = imageData.data[i + 2];
+                const avg = (r + g + b) / 3;
+                if (avg < threshold) darkPixels++;
+            }
+            return darkPixels > (imageData.data.length / 4) * 0.5;
+        }
+    </script>
+</body>
+
+</html>
