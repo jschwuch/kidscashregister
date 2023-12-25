@@ -22,6 +22,7 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
+            flex-direction: column;
         }
 
         .greenScreen {
@@ -137,10 +138,26 @@
             /* Required for proper track styling in Edge */
         }
 
+        #pricesArea {
+            flex: 1 1 auto;
+            width: 80%;
+            color: white;
+            font-size: 20px;
+            text-align: right;
+            overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        #pricesArea::-webkit-scrollbar {
+            display: none;
+            /* For Chrome, Safari, and Opera */
+        }
 
         #unlockSliderContainer {
             width: 80%;
             display: block;
+            flex: 0 0 50px;
         }
 
         #unlockSlider {
@@ -166,11 +183,13 @@
         </div>
         Beep threshold (higher = earlier)
         <div class="spacer"></div>
-        <input type="range" id="thresholdSlider" min="0" max="255" value="32"
-            class="slider">
+        <input type="range" id="thresholdSlider" min="0" max="255" value="32" class="slider"
+            onchange="thresholdChanged(value)">
         <div class="spacer"></div>
         <button id="toggleCameraButton" class="button">Toggle Camera</button>
         <button id="lockButton" class="button">Lock Settings</button>
+    </div>
+    <div id="pricesArea">
     </div>
     <div id="unlockSliderContainer">
         <input type="range" id="unlockSlider" min="0" max="100" value="0" class="slider">
@@ -179,6 +198,11 @@
     <script>
         let currentCameraIndex = 0;
         let cameras = [];
+
+        function thresholdChanged(value) {
+            console.log(value);
+            localStorage.setItem(cameras[currentCameraIndex].deviceId + '-scanThreshold', value);
+        }
 
         function listCameras() {
             navigator.mediaDevices.enumerateDevices()
@@ -200,6 +224,11 @@
             // If there's an existing stream, get all tracks and stop them
             if (video.srcObject) {
                 video.srcObject.getTracks().forEach(track => track.stop());
+            }
+
+            const savedScanThreshold = localStorage.getItem(cameras[currentCameraIndex].deviceId + '-scanThreshold');
+            if (savedScanThreshold) {
+                thresholdSlider.value = parseInt(savedScanThreshold);
             }
 
             navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId } })
@@ -263,6 +292,19 @@
             oscillator.stop(context.currentTime + 0.1); // beep for 0.1 seconds
         }
 
+        function randomInt() {
+            return Math.floor(Math.random() * 10)
+        }
+
+        function addPrice() {
+            const price = (randomInt() + randomInt() / 10 + 0.09).toFixed(2);
+            text = `${price} €`
+            const priceDiv = document.createElement('p');
+            priceDiv.classList.add('priceTag');
+            priceDiv.innerHTML = text;
+            document.querySelector('#pricesArea').prepend(priceDiv);
+        }
+
         function checkCamera() {
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
@@ -281,6 +323,7 @@
 
                 if (isDark(imageData, threshold) && cameraClearSinceLastScan && (Date.now() - lastBeepTime > 1000)) {
                     createBeep();
+                    addPrice();
                     lastBeepTime = Date.now();
                     document.body.classList.add('greenScreen');
                     setTimeout(() => document.body.classList.remove('greenScreen'), 1000);
